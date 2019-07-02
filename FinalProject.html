@@ -1,0 +1,486 @@
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+        <title>Babylon.js sample code</title>
+
+        <!-- Babylon.js -->
+        <script src="https://code.jquery.com/pep/0.4.2/pep.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.2/dat.gui.min.js"></script>
+        <script src="https://preview.babylonjs.com/ammo.js"></script>
+        <script src="https://preview.babylonjs.com/cannon.js"></script>
+        <script src="https://preview.babylonjs.com/Oimo.js"></script>
+        <script src="https://preview.babylonjs.com/gltf_validator.js"></script>
+        <script src="https://preview.babylonjs.com/earcut.min.js"></script>
+        <script src="https://preview.babylonjs.com/babylon.js"></script>
+        <script src="https://preview.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
+        <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+        <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+        <script src="https://preview.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.min.js"></script>
+        <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.js"></script>
+        <script src="https://preview.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+        <script src="https://preview.babylonjs.com/gui/babylon.gui.min.js"></script>
+
+        <style>
+            html, body {
+                overflow: hidden;
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+
+            #renderCanvas {
+                width: 100%;
+                height: 100%;
+                touch-action: none;
+            }
+        </style>
+    </head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        var canvas = document.getElementById("renderCanvas");
+
+        var createScene = function() {
+			
+            var scene = new BABYLON.Scene(engine);
+			scene.fogMode = BABYLON.Scene.FOGMODE_EXP;
+			scene.fogDensity = 0.0001;
+			scene.fogColor = new BABYLON.Color3(0.9, 0.9, 0.85);
+			var camera = new BABYLON.FlyCamera("FlyCamera", new BABYLON.Vector3(100, 200, -400), scene);
+
+		// Airplane like rotation, with faster roll correction and banked-turns.
+		// Default is 100. A higher number means slower correction.
+		camera.rollCorrect = 10;
+		// Default is false.
+		camera.bankedTurn = true;
+		// Defaults to 90° in radians in how far banking will roll the camera.
+		camera.bankedTurnLimit = Math.PI / 2;
+		// How much of the Yawing (turning) will affect the Rolling (banked-turn.)
+		// Less than 1 will reduce the Rolling, and more than 1 will increase it.
+		camera.bankedTurnMultiplier = 1;
+
+		// This attaches the camera to the canvas
+		camera.attachControl(canvas, true);
+            var light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 1, 0), scene);
+            light.intensity = 0.7;
+            //the ground
+            var ground = BABYLON.MeshBuilder.CreateGround("ground", {
+                width: 4000,
+                height: 4000
+            }, scene);
+			var material = new BABYLON.StandardMaterial("material", scene);
+				material.diffuseColor = new BABYLON.Color3(0.2,1.0,0.2);
+				ground.material = material;
+            ground.position.y = -70;
+        
+            //The car's body:
+        
+            //wheel radius
+            var rad = 50;
+            //height
+            var h = 30;
+            //width
+            var w = 50;
+            //depth
+            var d = 100;
+        
+            var body = BABYLON.MeshBuilder.CreateBox("body", {
+                width: (w + 20) * 1.5,
+                height: h,
+                depth: (d + 80) * 1.5
+            }, scene);
+			var material = new BABYLON.StandardMaterial("material", scene);
+				material.diffuseColor = new BABYLON.Color3(1.0,0.2,0.2);
+				body.material = material;
+        
+            //the wheels:
+        
+            var wheel1 = BABYLON.MeshBuilder.CreateSphere("wheel1", {
+                diameterY: rad,
+                //make the wheel look like... a wheel.
+                diameterX: rad / 2,
+                diameterZ: rad,
+                segments: 5
+            }, scene);
+            wheel1.position.copyFromFloats(-(w + 30), -20, -d);
+        
+            var wheel2 = BABYLON.MeshBuilder.CreateSphere("wheel2", {
+                diameterY: rad,
+                diameterX: rad / 2,
+                diameterZ: rad,
+                segments: 5
+            }, scene);
+            wheel2.position.copyFromFloats((w + 30), -20, -d);
+        
+            var wheel3 = BABYLON.MeshBuilder.CreateSphere("wheel3", {
+                diameterY: rad,
+                diameterX: rad / 2,
+                diameterZ: rad,
+                segments: 5
+            }, scene);
+            wheel3.position.copyFromFloats(-(w + 30), -20, d);
+        
+            var wheel4 = BABYLON.MeshBuilder.CreateSphere("wheel4", {
+                diameterY: rad,
+                diameterX: rad / 2,
+                diameterZ: rad,
+                segments: 5
+            }, scene);
+            wheel4.position.copyFromFloats((w + 30), -20, d);
+			
+			var material = new BABYLON.StandardMaterial("material", scene);
+				material.diffuseColor = new BABYLON.Color3(0.7,0.7,0.7);
+				wheel1.material = material;
+				wheel2.material = material;
+				wheel3.material = material;
+				wheel4.material = material;
+        	
+			var gravityVector = new BABYLON.Vector3(0,-9.81, 0);
+        	scene.enablePhysics(new BABYLON.Vector3(0,-9.81, 0), new BABYLON.OimoJSPlugin(500))
+			
+        	
+        	//set up the ground impostor:
+        	ground.physicsImpostor = new BABYLON.PhysicsImpostor(ground, BABYLON.PhysicsImpostor.BoxImpostor, {
+        	    //ground should stay in place
+        		mass: 0,
+        		friction: 1,
+				restitution: 0.3 
+        	});
+        	
+        	//the car body's impostor
+        	body.physicsImpostor = new BABYLON.PhysicsImpostor(body, BABYLON.PhysicsImpostor.BoxImpostor, {
+        	    mass: 20,
+        	    friction: 0.5,
+        	    restitution: 0.5,
+        	    nativeOptions: {
+        	        noSleep: true,
+        	        move: true
+        	    }
+        	});
+        	
+        	//The wheels impostors:
+        	[wheel1, wheel2, wheel3, wheel4].forEach(function(w) {
+        	    w.physicsImpostor = new BABYLON.PhysicsImpostor(w, BABYLON.PhysicsImpostor.SphereImpostor, {
+        	        mass: 4,
+        	        friction: 1,
+        	        restitution: 0.1,
+        	        nativeOptions: {
+        	            move: true
+        	        }
+        	    });
+        	});
+        	
+        	//suspensions:
+        	var holderSize = 25;
+        	
+        	var holder1 = BABYLON.MeshBuilder.CreateBox("holder1", {
+        		height: holderSize, width: holderSize/2, depth: holderSize/2
+        	}, scene);
+        	holder1.position.copyFromFloats(-w, -25, -d);
+        	
+        	var holder2 = BABYLON.MeshBuilder.CreateBox("holder2", {
+        		height: holderSize, width: holderSize/2, depth: holderSize/2
+        	}, scene);
+        	holder2.position.copyFromFloats(w, -25, -d);
+        	
+        	var holder3 = BABYLON.MeshBuilder.CreateBox("holder3", {
+        		height: holderSize, width: holderSize/2, depth: holderSize/2
+        	}, scene);
+        	holder3.position.copyFromFloats(-w, -25, d);
+        	
+        	var holder4 = BABYLON.MeshBuilder.CreateBox("holder4", {
+        		height: holderSize, width: holderSize/2, depth: holderSize/2
+        	}, scene);
+        	holder4.position.copyFromFloats(w, -25, d);
+			
+			var material = new BABYLON.StandardMaterial("material", scene);
+				material.diffuseColor = new BABYLON.Color3(0,0,0);
+				holder1.material = material;
+				holder2.material = material;
+				holder3.material = material;
+				holder4.material = material;
+        	
+        	[holder1, holder2, holder3, holder4].forEach(function (h) {
+        		//h.isVisible = false;
+        		h.physicsImpostor = new BABYLON.PhysicsImpostor(h, BABYLON.PhysicsImpostor.SphereImpostor, {
+                    mass: 8,
+                    friction: 1,
+                    restitution: 0.5
+                });
+        		h.physicsImpostor.physicsBody.collidesWith = ~1;
+        	});
+        	
+        	//slider joints
+        	
+        	 var sJoint1 = new BABYLON.MotorEnabledJoint(BABYLON.PhysicsJoint.SliderJoint, {
+                mainPivot: new BABYLON.Vector3(-w, -20, -d),
+                mainAxis: new BABYLON.Vector3(0, -1, 0),
+                connectedAxis: new BABYLON.Vector3(0, -1, 0),
+                nativeParams: {
+                    limit: [0, 0],
+        			spring: [100, 2],
+        			min: 5,
+        			max: 30
+                }
+            });
+            body.physicsImpostor.addJoint(holder1.physicsImpostor, sJoint1);
+        
+            var sJoint2 = new BABYLON.MotorEnabledJoint(BABYLON.PhysicsJoint.SliderJoint, {
+                mainPivot: new BABYLON.Vector3(w, -20, -d),
+                mainAxis: new BABYLON.Vector3(0, -1, 0),
+                connectedAxis: new BABYLON.Vector3(0, -1, 0),
+                nativeParams: {
+                    limit: [0, 0],
+        			spring: [100, 2],
+        			min: 5,
+        			max: 30
+                }
+            });
+            body.physicsImpostor.addJoint(holder2.physicsImpostor, sJoint2);
+        
+            var sJoint3 = new BABYLON.MotorEnabledJoint(BABYLON.PhysicsJoint.SliderJoint, {
+                mainPivot: new BABYLON.Vector3(-w, -20, d),
+                mainAxis: new BABYLON.Vector3(0, -1, 0),
+                connectedAxis: new BABYLON.Vector3(0, -1, 0),
+                nativeParams: {
+                    limit: [0, 0],
+        			spring: [100, 2],
+        			min: 5,
+        			max: 30
+                }
+            });
+            body.physicsImpostor.addJoint(holder3.physicsImpostor, sJoint3);
+        
+            var sJoint4 = new BABYLON.MotorEnabledJoint(BABYLON.PhysicsJoint.SliderJoint, {
+                mainPivot: new BABYLON.Vector3(w, -20, d),
+                mainAxis: new BABYLON.Vector3(0, -1, 0),
+                connectedAxis: new BABYLON.Vector3(0, -1, 0),
+                nativeParams: {
+                    limit: [0, 0],
+        			spring: [100, 2],
+        			min: 5,
+        			max: 30
+                }
+            });
+            body.physicsImpostor.addJoint(holder4.physicsImpostor, sJoint4);
+        	
+        	//wheel joints	
+            var joint1 = new BABYLON.HingeJoint({
+                mainPivot: new BABYLON.Vector3(0, -20, 0),
+        		connectedPivot: new BABYLON.Vector3(30, 0, 0),
+                mainAxis: new BABYLON.Vector3(-1, 0, 0),
+                connectedAxis: new BABYLON.Vector3(-1, 0, 0),
+                nativeParams: {
+                    limit: [0, 0]
+                }
+            });
+            holder1.physicsImpostor.addJoint(wheel1.physicsImpostor, joint1);
+        
+            var joint2 = new BABYLON.HingeJoint({
+                mainPivot: new BABYLON.Vector3(0, -20, 0),
+        		connectedPivot: new BABYLON.Vector3(-30, 0, 0),
+                mainAxis: new BABYLON.Vector3(-1, 0, 0),
+                connectedAxis: new BABYLON.Vector3(-1, 0, 0),
+                nativeParams: {
+                    limit: [0, 0]
+                }
+            });
+            holder2.physicsImpostor.addJoint(wheel2.physicsImpostor, joint2);
+        
+            var joint3 = new BABYLON.HingeJoint({
+                mainPivot: new BABYLON.Vector3(0, -20, 0),
+        		connectedPivot: new BABYLON.Vector3(30, 0, 0),
+                mainAxis: new BABYLON.Vector3(-1, 0, 0),
+                connectedAxis: new BABYLON.Vector3(-1, 0, 0),
+                nativeParams: {
+                    limit: [0, 0]
+                }
+            });
+            holder3.physicsImpostor.addJoint(wheel3.physicsImpostor, joint3);
+        
+            var joint4 = new BABYLON.HingeJoint({
+                mainPivot: new BABYLON.Vector3(0, -20, 0),
+        		connectedPivot: new BABYLON.Vector3(-30, 0, 0),
+                mainAxis: new BABYLON.Vector3(-1, 0, 0),
+                connectedAxis: new BABYLON.Vector3(-1, 0, 0),
+                nativeParams: {
+                    limit: [0, 0]
+                }
+            });
+            holder4.physicsImpostor.addJoint(wheel4.physicsImpostor, joint4);
+        	
+        	    //The control object - what is happening at the moment.
+            var actions = {
+                steering: 0,
+                velocity: 0
+            };
+        
+            var deg45 = Math.PI / 4;
+        
+            //current rotation angle
+            var angle = 0
+        
+            //My keyUp / reset implementation
+            function keyUp(event) {
+        
+                var key = event.keyCode;
+        
+                switch (key) {
+                    //left and right arrows
+                    case 37:
+                    case 39:
+                        actions.steering = 2;
+                        break;
+                        //up and down arrows
+                    case 38:
+                    case 40:
+                        actions.velocity = 1;
+                        break;
+                }
+        
+                updating = false;
+            }
+        
+            //when a key is pressend
+            function keyDown(event) {
+        
+                var key = event.keyCode;
+        
+                switch (key) {
+                    case 37:
+                        actions.steering = 1;
+                        break;
+                    case 38:
+                        actions.velocity = -1;
+                        break;
+                    case 39:
+                        actions.steering = -1;
+                        break;
+                    case 40:
+                        actions.velocity = 1;
+                        break;
+                }
+                updating = true;
+            }
+        
+            //add the event listeners
+            document.addEventListener('keydown', keyDown);
+            document.addEventListener('keyup', keyUp);
+        
+            //remove listeners when the scene is disposed
+            scene.onDispose = function() {
+                document.removeEventListener('keydown', keyDown);
+                document.removeEventListener('keyup', keyUp);
+            }
+        
+            var steeringLimit = Math.PI / 6;
+            var updating = false;
+        
+            /**
+            The update function will be in change of updating both motors - steering and movement on each frame.
+            */
+            function update() {
+        
+                //get the current steering direction
+                var steering = actions.steering;
+        
+                //change the angle of steering
+                angle += steering * 0.1;
+                //set the max/min angle. so that the wheels won't turn 360 degrees
+                angle = angle = angle > steeringLimit ? steeringLimit : angle < -steeringLimit ? -steeringLimit : angle;
+        
+                //Make both front wheels turn!
+        
+                //First set the motor's limit - from/till what angle should it move.
+                sJoint3.setLimit(angle, angle);
+                sJoint4.setLimit(angle, angle);
+                //The back wheels should ALWAYS be straight
+                sJoint1.setLimit(0, 0);
+                sJoint2.setLimit(0, 0);
+                //Now add force to force steering movement.
+                sJoint3.setMotor(steering, 3);
+                sJoint4.setMotor(steering, 3);
+        
+                //Is that car moving forward / backwards?
+                var velocity = actions.velocity || 0;
+                //Calculate the velocity of a single wheel
+                var wheelVelocity = 15 * Math.PI * velocity;
+        
+                //set this force to all wheels (simulating a 4x4 car).
+                joint1.setMotor(wheelVelocity, 20);
+                joint2.setMotor(wheelVelocity, 20);
+                joint3.setMotor(wheelVelocity, 20);
+                joint4.setMotor(wheelVelocity, 20);
+            }
+        
+            //Run the update function on every frame, so acceleration and wheel movement will work smoothly.
+            scene.registerBeforeRender(update);
+        	
+        	    //general randomize function
+            function rand(mult) {
+                return Math.random() * (Math.random() < 0.5 ? -1 : 1) * mult;
+            }
+        
+            //Obstacles
+            for (var index = 0; index < 1; index++) {
+                var s = BABYLON.MeshBuilder.CreateSphere("o" + index, {
+                    segments: 3,
+                    diameter: rad
+                }, scene);
+                s.position.copyFromFloats(rand(2000), -70, rand(2000));
+				var material = new BABYLON.StandardMaterial("material", scene);
+				material.diffuseColor = new BABYLON.Color3(0.2,0.2,0.2);
+				s.material = material;
+                s.physicsImpostor = new BABYLON.PhysicsImpostor(s, BABYLON.PhysicsImpostor.SphereImpostor, {
+                    mass: 3,
+                    friction: 4,
+                    restitution: 0.1,
+                    nativeOptions: {
+                        move: false
+                    }
+                });
+            }
+        
+            for (var index = 0; index < 1; index++) {
+                var s = BABYLON.MeshBuilder.CreateBox("o" + index + 300, {
+                    segments: 3,
+                    width: rad,
+                    height: rad,
+                    depth: rad
+                }, scene);
+                s.position.copyFromFloats(rand(2000), -80, rand(2000));
+				var material = new BABYLON.StandardMaterial("material", scene);
+				material.diffuseColor = new BABYLON.Color3(0.5,0.3,0.1);
+				s.material = material;
+                s.physicsImpostor = new BABYLON.PhysicsImpostor(s, BABYLON.PhysicsImpostor.BoxImpostor, {
+                    mass: 3,
+                    friction: 4,
+                    restitution: 0.1,
+                    nativeOptions: {
+                        move: false
+                    }
+                });
+            } 
+        
+            return scene;
+        
+        };
+        
+        var engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+        var scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        // Resize
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+</body>
+</html>
